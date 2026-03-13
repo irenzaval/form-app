@@ -3,7 +3,7 @@
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u82446');
 define('DB_USER', 'u82446');
-define('DB_PASS', ''); // ВАЖНО: введите свой пароль от MySQL
+define('DB_PASS', '5063155'); // ВАЖНО: введите свой пароль от MySQL
 
 try {
     $pdo = new PDO(
