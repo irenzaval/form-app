@@ -1,8 +1,8 @@
 <?php
 // config.php
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u824446');
-define('DB_USER', 'u824446');
+define('DB_NAME', 'u82446');
+define('DB_USER', 'u82446');
 define('DB_PASS', ''); // ВАЖНО: введите свой пароль от MySQL
 
 try {
