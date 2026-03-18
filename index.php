@@ -1,9 +1,24 @@
 <?php
 // index.php
-session_start();
-$errors = $_SESSION['errors'] ?? [];
-$old = $_SESSION['old'] ?? [];
-unset($_SESSION['errors'], $_SESSION['old']);
+$errors = [];
+$old = [];
+
+// Читаем Cookies с ошибками (если есть)
+if (isset($_COOKIE['form_errors'])) {
+    $errors = json_decode($_COOKIE['form_errors'], true);
+    // Удаляем cookie ошибок после прочтения (до конца сессии - значит при закрытии браузера)
+    setcookie('form_errors', '', time() - 3600, '/');
+}
+
+// Читаем сохраненные данные из Cookies (если есть)
+if (isset($_COOKIE['form_data'])) {
+    $old = json_decode($_COOKIE['form_data'], true);
+}
+
+// Если есть временные данные из запроса (приоритет над Cookies)
+if (isset($_GET['old'])) {
+    $old = array_merge($old, json_decode(urldecode($_GET['old']), true) ?: []);
+}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -54,6 +69,7 @@ unset($_SESSION['errors'], $_SESSION['old']);
         
         .form-group {
             margin-bottom: 20px;
+            position: relative;
         }
         
         .form-group.full-width {
@@ -164,18 +180,41 @@ unset($_SESSION['errors'], $_SESSION['old']);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
         
-        .error-message {
+        .error-container {
             background: #fee;
             color: #c33;
-            padding: 12px 15px;
+            padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             border-left: 4px solid #c33;
-            font-size: 0.95rem;
         }
         
-        .error-message ul {
-            margin-left: 20px;
+        .error-item {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #fcd;
+        }
+        
+        .error-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .error-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .error-message {
+            color: #c33;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .field-error {
+            border-color: #c33 !important;
+            background: #fff0f0 !important;
         }
         
         .success-message {
@@ -189,9 +228,11 @@ unset($_SESSION['errors'], $_SESSION['old']);
             font-weight: 500;
         }
         
-        .field-error {
-            border-color: #c33 !important;
-            background: #fff0f0 !important;
+        .hint {
+            color: #777;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            display: block;
         }
         
         @media (max-width: 768px) {
@@ -214,13 +255,14 @@ unset($_SESSION['errors'], $_SESSION['old']);
         <h1>Регистрационная форма</h1>
         
         <?php if (!empty($errors)): ?>
-            <div class="error-message">
+            <div class="error-container">
                 <strong>Пожалуйста, исправьте следующие ошибки:</strong>
-                <ul>
-                    <?php foreach ($errors as $error): ?>
-                        <li><?= htmlspecialchars($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
+                <?php foreach ($errors as $field => $error): ?>
+                    <div class="error-item">
+                        <div class="error-title">Поле "<?= htmlspecialchars($field) ?>":</div>
+                        <div class="error-message"><?= htmlspecialchars($error) ?></div>
+                    </div>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
         
@@ -232,7 +274,7 @@ unset($_SESSION['errors'], $_SESSION['old']);
         
         <form action="save.php" method="POST">
             <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group <?= isset($errors['full_name']) ? 'has-error' : '' ?>">
                     <label for="full_name">ФИО *</label>
                     <input type="text" 
                            id="full_name" 
@@ -241,9 +283,13 @@ unset($_SESSION['errors'], $_SESSION['old']);
                            placeholder="Иванов Иван Иванович"
                            class="<?= isset($errors['full_name']) ? 'field-error' : '' ?>"
                            required>
+                    <?php if (isset($errors['full_name'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['full_name']) ?></div>
+                    <?php endif; ?>
+                    <span class="hint">Допустимы только буквы, пробелы и дефисы</span>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group <?= isset($errors['phone']) ? 'has-error' : '' ?>">
                     <label for="phone">Телефон *</label>
                     <input type="tel" 
                            id="phone" 
@@ -252,9 +298,13 @@ unset($_SESSION['errors'], $_SESSION['old']);
                            placeholder="+7 (999) 123-45-67"
                            class="<?= isset($errors['phone']) ? 'field-error' : '' ?>"
                            required>
+                    <?php if (isset($errors['phone'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['phone']) ?></div>
+                    <?php endif; ?>
+                    <span class="hint">Допустимы цифры, пробелы, +, -, (, )</span>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group <?= isset($errors['email']) ? 'has-error' : '' ?>">
                     <label for="email">E-mail *</label>
                     <input type="email" 
                            id="email" 
@@ -263,9 +313,13 @@ unset($_SESSION['errors'], $_SESSION['old']);
                            placeholder="example@mail.com"
                            class="<?= isset($errors['email']) ? 'field-error' : '' ?>"
                            required>
+                    <?php if (isset($errors['email'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['email']) ?></div>
+                    <?php endif; ?>
+                    <span class="hint">Формат: user@domain.com</span>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group <?= isset($errors['birth_date']) ? 'has-error' : '' ?>">
                     <label for="birth_date">Дата рождения *</label>
                     <input type="date" 
                            id="birth_date" 
@@ -273,9 +327,13 @@ unset($_SESSION['errors'], $_SESSION['old']);
                            value="<?= htmlspecialchars($old['birth_date'] ?? '') ?>"
                            class="<?= isset($errors['birth_date']) ? 'field-error' : '' ?>"
                            required>
+                    <?php if (isset($errors['birth_date'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['birth_date']) ?></div>
+                    <?php endif; ?>
+                    <span class="hint">Формат: ГГГГ-ММ-ДД</span>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group <?= isset($errors['gender']) ? 'has-error' : '' ?>">
                     <label>Пол *</label>
                     <div class="radio-group">
                         <label class="radio-option">
@@ -293,10 +351,13 @@ unset($_SESSION['errors'], $_SESSION['old']);
                                    required> Женский
                         </label>
                     </div>
+                    <?php if (isset($errors['gender'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['gender']) ?></div>
+                    <?php endif; ?>
                 </div>
                 
-                <div class="form-group">
-                    <label for="languages">Любимый язык программирования * (множественный выбор)</label>
+                <div class="form-group <?= isset($errors['languages']) ? 'has-error' : '' ?>">
+                    <label for="languages">Любимый язык программирования *</label>
                     <select name="languages[]" 
                             id="languages" 
                             multiple 
@@ -317,19 +378,26 @@ unset($_SESSION['errors'], $_SESSION['old']);
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <small style="color: #777; display: block; margin-top: 5px;">
+                    <?php if (isset($errors['languages'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['languages']) ?></div>
+                    <?php endif; ?>
+                    <small class="hint">
                         Удерживайте Ctrl (Cmd) для выбора нескольких
                     </small>
                 </div>
                 
-                <div class="form-group full-width">
+                <div class="form-group full-width <?= isset($errors['biography']) ? 'has-error' : '' ?>">
                     <label for="biography">Биография</label>
                     <textarea id="biography" 
                               name="biography" 
-                              placeholder="Расскажите о себе..."><?= htmlspecialchars($old['biography'] ?? '') ?></textarea>
+                              placeholder="Расскажите о себе..."
+                              class="<?= isset($errors['biography']) ? 'field-error' : '' ?>"><?= htmlspecialchars($old['biography'] ?? '') ?></textarea>
+                    <?php if (isset($errors['biography'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['biography']) ?></div>
+                    <?php endif; ?>
                 </div>
                 
-                <div class="form-group full-width">
+                <div class="form-group full-width <?= isset($errors['contract_accepted']) ? 'has-error' : '' ?>">
                     <div class="checkbox-group">
                         <input type="checkbox" 
                                name="contract_accepted" 
@@ -339,6 +407,9 @@ unset($_SESSION['errors'], $_SESSION['old']);
                                required>
                         <label for="contract">Я ознакомлен(а) с контрактом *</label>
                     </div>
+                    <?php if (isset($errors['contract_accepted'])): ?>
+                        <div class="error-message"><?= htmlspecialchars($errors['contract_accepted']) ?></div>
+                    <?php endif; ?>
                 </div>
             </div>
             
