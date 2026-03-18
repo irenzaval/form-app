@@ -1,68 +1,74 @@
 <?php
-// auth.php
 session_start();
 require_once 'config.php';
 
+// Включаем отображение всех ошибок для отладки
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+// Смотрим, что пришло из формы
+echo "<h3>Отладочная информация:</h3>";
+echo "<pre>";
+echo "Метод запроса: " . $_SERVER['REQUEST_METHOD'] . "\n";
+echo "POST данные:\n";
+print_r($_POST);
+echo "Сырые данные POST:\n";
+echo file_get_contents('php://input');
+echo "</pre>";
+
+// Проверяем, что это POST запрос
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: login.php');
-    exit;
+    die("Ошибка: Не POST запрос");
 }
 
 $login = $_POST['login'] ?? '';
 $password = $_POST['password'] ?? '';
 
+echo "Логин после обработки: '$login'\n";
+echo "Пароль после обработки: '$password'\n";
+
 if (empty($login) || empty($password)) {
-    header('Location: login.php?error=' . urlencode('Введите логин и пароль'));
-    exit;
+    die("Ошибка: Пустой логин или пароль");
 }
 
+// Если дошли до сюда - данные пришли
+echo "Данные получены, пробуем авторизацию...";
+
+// Дальше можно добавить код проверки в БД
 try {
-    // Ищем пользователя по логину
-    $stmt = $pdo->prepare("
-        SELECT ua.*, u.full_name, u.email, u.phone, u.birth_date, u.gender, u.biography
-        FROM user_accounts ua
-        JOIN users u ON ua.user_id = u.id
-        WHERE ua.login = ?
-    ");
+    // Поиск пользователя по логину
+    $stmt = $pdo->prepare("SELECT * FROM user_accounts WHERE login = ?");
     $stmt->execute([$login]);
     $user = $stmt->fetch();
     
-    if ($user && password_verify($password, $user['password_hash'])) {
-        // Успешный вход
-        $_SESSION['user_id'] = $user['user_id'];
-        $_SESSION['login'] = $user['login'];
-        $_SESSION['authenticated'] = true;
+    if ($user) {
+        echo "\n\n✅ Пользователь найден в БД!\n";
+        echo "Логин из БД: " . $user['login'] . "\n";
+        echo "Хеш пароля: " . $user['password_hash'] . "\n";
         
-        // Загружаем данные пользователя для формы редактирования
-        $_SESSION['edit_data'] = [
-            'full_name' => $user['full_name'],
-            'phone' => $user['phone'],
-            'email' => $user['email'],
-            'birth_date' => $user['birth_date'],
-            'gender' => $user['gender'],
-            'biography' => $user['biography']
-        ];
-        
-        // Загружаем языки пользователя
-        $stmt = $pdo->prepare("
-            SELECT pl.name 
-            FROM user_languages ul
-            JOIN programming_languages pl ON ul.language_id = pl.id
-            WHERE ul.user_id = ?
-        ");
-        $stmt->execute([$user['user_id']]);
-        $languages = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        $_SESSION['edit_data']['languages'] = $languages;
-        
-        header('Location: edit.php');
-        exit;
+        // Проверяем пароль
+        if (password_verify($password, $user['password_hash'])) {
+            echo "✅ Пароль верный!\n";
+            
+            // Создаем сессию
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['login'] = $user['login'];
+            $_SESSION['authenticated'] = true;
+            
+            echo "✅ Сессия создана! Перенаправляем на edit.php...\n";
+            echo "Через 3 секунды вы будете перенаправлены...";
+            
+            // Перенаправление через JavaScript
+            echo '<script>setTimeout(function() { window.location.href = "edit.php"; }, 3000);</script>';
+            
+        } else {
+            echo "❌ Пароль НЕ верный!\n";
+        }
     } else {
-        header('Location: login.php?error=' . urlencode('Неверный логин или пароль'));
-        exit;
+        echo "\n❌ Пользователь с логином '$login' НЕ найден в БД!\n";
     }
+    
 } catch (Exception $e) {
-    error_log("Auth error: " . $e->getMessage());
-    header('Location: login.php?error=' . urlencode('Ошибка при входе'));
-    exit;
+    echo "\n❌ Ошибка БД: " . $e->getMessage() . "\n";
 }
 ?>
