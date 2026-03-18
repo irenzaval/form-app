@@ -1,12 +1,25 @@
 <?php
 // index.php
+session_start(); // Добавляем старт сессии
+
 $errors = [];
 $old = [];
+
+// Показываем сгенерированные логин/пароль, если они есть
+$generatedLogin = $_SESSION['generated_login'] ?? null;
+$generatedPassword = $_SESSION['generated_password'] ?? null;
+
+// Очищаем после отображения
+if ($generatedLogin) {
+    unset($_SESSION['generated_login']);
+}
+if ($generatedPassword) {
+    unset($_SESSION['generated_password']);
+}
 
 // Читаем Cookies с ошибками (если есть)
 if (isset($_COOKIE['form_errors'])) {
     $errors = json_decode($_COOKIE['form_errors'], true);
-    // Удаляем cookie ошибок после прочтения (до конца сессии - значит при закрытии браузера)
     setcookie('form_errors', '', time() - 3600, '/');
 }
 
@@ -27,6 +40,59 @@ if (isset($_GET['old'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Регистрационная форма</title>
     <style>
+        /* Все предыдущие стили остаются + добавляем новые */
+        .credentials-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .credentials-box h3 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+        
+        .credential-item {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1.2em;
+            border: 1px solid #bbdefb;
+        }
+        
+        .credential-label {
+            font-weight: bold;
+            color: #555;
+            margin-right: 10px;
+        }
+        
+        .warning {
+            color: #f57c00;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .login-link {
+            display: inline-block;
+            margin-top: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .login-link:hover {
+            background: #388e3c;
+        }
+        
+        /* Остальные стили остаются без изменений */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -270,6 +336,30 @@ if (isset($_GET['old'])) {
             <div class="success-message">
                 ✓ Данные успешно сохранены! ID записи: <?= htmlspecialchars($_GET['id'] ?? '') ?>
             </div>
+            
+            <?php if ($generatedLogin && $generatedPassword): ?>
+                <div class="credentials-box">
+                    <h3>🎉 Ваши учетные данные для входа</h3>
+                    <p>Сохраните их! Они понадобятся для редактирования данных.</p>
+                    
+                    <div class="credential-item">
+                        <span class="credential-label">Логин:</span>
+                        <strong><?= htmlspecialchars($generatedLogin) ?></strong>
+                    </div>
+                    
+                    <div class="credential-item">
+                        <span class="credential-label">Пароль:</span>
+                        <strong><?= htmlspecialchars($generatedPassword) ?></strong>
+                    </div>
+                    
+                    <div class="warning">
+                        ⚠️ Пароль хранится в базе в зашифрованном виде. 
+                        Если потеряете, восстановить будет невозможно!
+                    </div>
+                    
+                    <a href="login.php" class="login-link">Перейти к входу для редактирования →</a>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
         
         <form action="save.php" method="POST">
@@ -289,6 +379,7 @@ if (isset($_GET['old'])) {
                     <span class="hint">Допустимы только буквы, пробелы и дефисы</span>
                 </div>
                 
+                <!-- Остальные поля формы остаются точно такими же, как в предыдущей версии -->
                 <div class="form-group <?= isset($errors['phone']) ? 'has-error' : '' ?>">
                     <label for="phone">Телефон *</label>
                     <input type="tel" 
