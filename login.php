@@ -140,14 +140,27 @@ $error = $_GET['error'] ?? null;
             </div>
         <?php endif; ?>
         
-        <form action="auth.php" method="POST">
-            <div class="form-group">
-                <label for="login">Логин</label>
-                <input type="text" 
-                       id="login" 
-                       name="login" 
-                       placeholder="Введите логин"
-                       required>
+       <form action="auth.php" method="POST">
+    <div class="form-group">
+        <label for="login">Логин</label>
+        <input type="text" 
+               id="login" 
+               name="login"           <!-- ВАЖНО: name="login" -->
+               placeholder="Введите логин"
+               required>
+    </div>
+    
+    <div class="form-group">
+        <label for="password">Пароль</label>
+        <input type="password" 
+               id="password" 
+               name="password"        <!-- ВАЖНО: name="password" -->
+               placeholder="Введите пароль"
+               required>
+    </div>
+    
+    <button type="submit">Войти</button>
+</form>
             </div>
             
            
