@@ -1,30 +1,35 @@
 <?php
 // save.php
-session_start();
 require_once 'config.php';
 
-// Функции валидации
+// Функции валидации с регулярными выражениями
 function validateFullName($name) {
     if (empty($name)) return "ФИО обязательно для заполнения";
     if (strlen($name) > 150) return "ФИО не должно превышать 150 символов";
+    
+    // Регулярное выражение: только буквы (русские и английские), пробелы и дефисы
     if (!preg_match('/^[а-яА-ЯёЁa-zA-Z\s\-]+$/u', $name)) {
-        return "ФИО должно содержать только буквы, пробелы и дефисы";
+        return "ФИО должно содержать только буквы (А-Яа-яA-Za-z), пробелы и дефисы";
     }
     return null;
 }
 
 function validatePhone($phone) {
     if (empty($phone)) return "Телефон обязателен для заполнения";
+    
+    // Регулярное выражение: цифры, пробелы, +, -, (, )
     if (!preg_match('/^[\d\s\+\-\(\)]{5,20}$/', $phone)) {
-        return "Телефон должен содержать от 5 до 20 символов: цифры, пробелы, +, -, (, )";
+        return "Телефон должен содержать только цифры, пробелы, символы +, -, (, )";
     }
     return null;
 }
 
 function validateEmail($email) {
     if (empty($email)) return "Email обязателен для заполнения";
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return "Некорректный формат email";
+    
+    // Регулярное выражение для email
+    if (!preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $email)) {
+        return "Email должен быть в формате user@domain.com (только латиница, цифры, точки, дефисы)";
     }
     if (strlen($email) > 100) return "Email не должен превышать 100 символов";
     return null;
@@ -32,10 +37,17 @@ function validateEmail($email) {
 
 function validateBirthDate($date) {
     if (empty($date)) return "Дата рождения обязательна";
+    
+    // Регулярное выражение для формата YYYY-MM-DD
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return "Дата должна быть в формате ГГГГ-ММ-ДД";
+    }
+    
     $d = DateTime::createFromFormat('Y-m-d', $date);
     if (!$d || $d->format('Y-m-d') !== $date) {
-        return "Некорректный формат даты";
+        return "Некорректная дата";
     }
+    
     $minDate = new DateTime('1900-01-01');
     $maxDate = new DateTime('today');
     if ($d < $minDate || $d > $maxDate) {
@@ -47,7 +59,7 @@ function validateBirthDate($date) {
 function validateGender($gender) {
     $allowed = ['male', 'female'];
     if (!in_array($gender, $allowed)) {
-        return "Выберите корректный пол";
+        return "Выберите корректный пол (Мужской или Женский)";
     }
     return null;
 }
@@ -62,7 +74,7 @@ function validateLanguages($languages) {
     
     foreach ($languages as $lang) {
         if (!in_array($lang, $allowed)) {
-            return "Обнаружен недопустимый язык программирования";
+            return "Выбран недопустимый язык программирования";
         }
     }
     return null;
@@ -170,23 +182,40 @@ if ($error = validateContract($_POST['contract_accepted'] ?? '')) {
     $errors['contract_accepted'] = $error;
 }
 
-// Если есть ошибки, возвращаемся с сообщениями
+// Если есть ошибки, сохраняем в Cookies и возвращаемся
 if (!empty($errors)) {
-    $_SESSION['errors'] = $errors;
-    $_SESSION['old'] = $_POST;
+    // Сохраняем ошибки в Cookie (до конца сессии - при закрытии браузера)
+    setcookie('form_errors', json_encode($errors), 0, '/');
+    
+    // Сохраняем введенные данные в Cookie (тоже до конца сессии)
+    setcookie('form_data', json_encode($_POST), 0, '/');
+    
+    // Перенаправляем обратно с флагом ошибки
     header('Location: index.php');
     exit;
 }
 
-// Сохраняем данные
+// Если ошибок нет - сохраняем данные
 try {
     $userId = saveFormData($pdo, $_POST, $languages);
+    
+    // При успехе сохраняем данные в Cookies на 1 год
+    setcookie('form_data', json_encode($_POST), time() + 365*24*60*60, '/');
+    
+    // Удаляем ошибки если были
+    setcookie('form_errors', '', time() - 3600, '/');
+    
     header("Location: index.php?success=1&id=$userId");
     exit;
+    
 } catch (Exception $e) {
     error_log("Database error: " . $e->getMessage());
-    $_SESSION['errors'] = ['database' => 'Ошибка при сохранении данных. Пожалуйста, попробуйте позже.'];
-    $_SESSION['old'] = $_POST;
+    
+    // При ошибке БД сохраняем в Cookies и показываем сообщение
+    $errors['database'] = 'Ошибка при сохранении данных. Пожалуйста, попробуйте позже.';
+    setcookie('form_errors', json_encode($errors), 0, '/');
+    setcookie('form_data', json_encode($_POST), 0, '/');
+    
     header('Location: index.php');
     exit;
 }
