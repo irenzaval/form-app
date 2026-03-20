@@ -145,14 +145,14 @@ $error = $_GET['error'] ?? null;
         <label for="login">Логин</label>
         <input type="text" 
                id="login" 
-               name="login"           <!-- ВАЖНО: name="login" -->>
+               name="login"           <!-- ВАЖНО: name="login" -->
     </div>
     
     <div class="form-group">
         <label for="password">Пароль</label>
         <input type="password" 
                id="password" 
-               name="password"        <!-- ВАЖНО: name="password" -->>
+               name="password"        <!-- ВАЖНО: name="password" -->
     </div>
     
     <button type="submit">Войти</button>
